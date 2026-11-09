@@ -53,6 +53,28 @@ npm create @microsoft/rayfin@latest -- "<appitemname>" --template todoapp --work
 | `npx rayfin up --dry-run` | 변경 없이 미리보기 |
 | `npx rayfin up status` / `list` / `switch` | 상태, 배포 목록, 워크스페이스 전환 |
 
+### dev / prod 환경 분리 [문서]
+두 워크스페이스에 같은 프로젝트를 배포하고 승격은 **수동**이다 (자동 승격 기능 없음).
+
+1. 포털에서 `my-app-dev`, `my-app-prod` 워크스페이스를 직접 생성 (ID 기록)
+2. `npx rayfin login` (`--tenant <id>`, 확인: `npx rayfin login status`)
+3. `npm create @microsoft/rayfin@latest my-app --workspace my-app-dev`
+4. `npx rayfin up --workspace my-app-dev` → dev에 앱 항목 생성, `rayfin/.env`에 기록, dev가 활성 배포
+5. dev에서 반복: `npm run dev` → (스키마만) `up db apply` → (전체) `up`
+6. 승격: `npx rayfin up --workspace my-app-prod` → prod에 **별도 앱 항목** 생성, 두 번째 배포 기록, `rayfin/.env`가 prod를 가리킴
+7. 전환: `npx rayfin up list`, `npx rayfin up switch --list`, `npx rayfin up switch my-app-dev|my-app-prod` (이후 `rayfin up`은 활성 워크스페이스 대상)
+8. prod 검증: `npx rayfin up status` + 호스팅 URL 확인. 문제 시 dev로 switch → 수정·검증 → prod로 switch 후 `rayfin up`
+
+권장: 소스는 버전 관리(`rayfin/.env`는 활성 배포를 가리키는 로컬 포인터일 뿐 진실의 원천이 아님), 기능 브랜치에서 작업하고 dev 검증 후 병합, prod에 `--force`를 습관적으로 쓰지 않음, **prod 배포 전 `--dry-run`**, 승격 전 `rayfin.yml`의 인증 설정 확인.
+
+원문 오타: 개요에 `up -workspace`, `up switch -workspace`(하이픈 1개)로 적힌 곳이 있으나 CLI 레퍼런스는 `--workspace`, `switch`는 위치 인자(`up switch my-app-prod`)다. 본문 7단계를 따를 것.
+
+설계 영향 [추정]:
+- dev와 prod는 **별개 앱 항목·별개 DB**다. prod에 데이터가 쌓인 뒤 `db apply`의 파괴적 변경 경고는 실제 데이터 손실로 이어진다.
+- 워크스페이스마다 앱 ID(항목 소유자)가 다를 수 있어, 외부 리소스·커넥터 소스 권한을 환경별로 따로 부여해야 한다.
+- 커넥터의 `workspaceId`/`itemId`가 `rayfin.yml`에 들어가므로 환경별 소스 분리 방법이 필요하다 (`${VAR}` 보간 적용 여부는 미확인).
+- 환경마다 호스팅 origin이 다르다. 같은 `rayfin.yml`을 쓰면 `allowedRedirectUris`에 상대 환경의 origin이 남을 수 있으므로 prod 배포 전에 목록을 점검한다 (7절 참조).
+
 ## 3. 프로젝트 구조
 
 [문서] 템플릿에 따라 경로가 다르다. **`rayfin.yml`에 설정된 서비스 경로를 따르고 폴더를 중복 생성하지 않는다.**
@@ -220,7 +242,8 @@ export class DataRequest { /* ... */ }
   - **팝업 단계는 클릭 등 사용자 동작 핸들러 안에서 호출**해야 한다. 5분 안에 완료.
 - 세션: `client.auth.getSession()`, `client.auth.onSessionChange(cb)`, `client.auth.signOut()`. 세션에서 읽을 수 있는 값은 인증 여부, `user`(id/email), `rayfin.yml`의 커스텀 클레임. 토큰은 불투명하게 취급.
 - 환경 변수: `VITE_RAYFIN_API_URL`, `VITE_RAYFIN_PUBLISHABLE_KEY`, `VITE_FABRIC_WORKSPACE_ID`, `VITE_FABRIC_ITEM_ID`, `VITE_FABRIC_PORTAL_URL`(생성 방식은 PoC에서 확인), `VITE_RAYFIN_HOSTING_URL`
-- `allowedRedirectUris`: `returnOrigin`은 항목과 스킴·호스트·포트까지 정확히 일치해야 한다. 와일드카드 금지, 오래된 origin 정리. 변경 후 `rayfin up`.
+- `allowedRedirectUris`(기본 `["http://localhost:5173"]`): `returnOrigin`은 항목과 스킴·호스트·포트까지 정확히 일치해야 한다(bare origin, 경로 없음). 정적 호스팅이 켜져 있으면 `rayfin up`이 배포 origin을 **매 배포마다 자동 추가**한다. 이 목록은 보안 경계이므로 와일드카드·제3자 origin 금지, 다른 프로젝트·이전 배포의 오래된 origin 정리. 변경 후 `rayfin up`. origin mismatch 시 `returnOrigin`에 경로가 없는지, 스킴·호스트·포트가 맞는지, `up` 후 배포 origin이 들어 있는지 확인.
+  - dev/prod를 같은 `rayfin.yml`로 배포하면 상대 환경 origin이 남을 수 있다 [추정]. prod 배포 전 목록을 점검한다. 환경별로 목록을 분리하는 방법은 원문에 없다.
 - 커스텀 클레임(`services.auth.customClaims`)은 **앱 전체 공통 정적 값**이다(예: `tenant: default`). 사용자별 구분용이 아니다.
 - 서비스 주체(service principal) 로그인은 도움말에 있으나 **현재 미지원** → CI/CD 자동 배포 제약.
 
@@ -332,6 +355,8 @@ Node 20+, Contributor/Member/Admin, 테넌트 설정(Fabric Apps + Semantic Mode
 | 날짜 월별 그룹핑 지원 | 미확인 |
 | `rayfin up` 후 `/auth/callback` 등록 여부 | 문서 간 서술 차이 |
 | `@set` 필수 필드의 `default` 필요 여부 (create에서 `status` 제외 시) | 미확인 |
+| 환경별(dev/prod) 커넥터 소스 지정 방법 (`${VAR}` 보간이 커넥터·`allowedRedirectUris`에 적용되는지) | 미확인 |
+| dev/prod 앱 ID(항목 소유자) 권한 분리 | 원문에 직접 언급 없음 [추정] |
 | 가격·라이선스 | 용량 할당이 필요하다는 것 외에 없음 |
 | 아직 안 읽은 문서 | `anonymous-data-access`, `troubleshooting`, `create-app-with-cli`, `create-app-with-github-copilot`, `project-structure` 세부 |
 
@@ -358,6 +383,7 @@ Node 20+, Contributor/Member/Admin, 테넌트 설정(Fabric Apps + Semantic Mode
 - https://learn.microsoft.com/en-us/fabric/apps/authentication
 - https://learn.microsoft.com/en-us/fabric/apps/fabric-authentication
 - https://learn.microsoft.com/en-us/fabric/apps/configure-authentication-redirect-uris
+- https://learn.microsoft.com/en-us/fabric/apps/dev-prod-workflow
 - https://learn.microsoft.com/en-us/fabric/apps/functions
 - https://learn.microsoft.com/en-us/fabric/apps/functions-connect-external-resources
 - https://learn.microsoft.com/en-us/fabric/apps/apply-schema-changes
