@@ -23,7 +23,8 @@ export interface RequestCommentRecord {
   createdAt: Date;
   /** Owner of the parent request, copied at creation so a requester can read comments on their own request. */
   request_owner_id: string;
-  request?: DataRequestRecord;
+  /** Parent request; when writing, pass just `{ id }`. */
+  request?: { id: string };
 }
 
 export interface DataRequestRecord {
