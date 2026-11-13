@@ -55,11 +55,13 @@ const GROUPS: readonly Group[] = [
   },
 ];
 
-const itemClass = (active: boolean) =>
+const itemClass = (active: boolean, soft = false) =>
   cn(
-    'flex w-full items-center gap-200 rounded-lg px-300 py-200 text-left text-300 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+    'flex w-full items-center gap-200 rounded-full px-400 py-200 text-left text-300 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
     active
-      ? 'bg-accent font-semibold text-accent-foreground'
+      ? soft
+        ? 'bg-accent font-semibold text-accent-foreground'
+        : 'bg-primary font-semibold text-primary-foreground'
       : 'font-medium text-foreground hover:bg-accent'
   );
 
@@ -76,11 +78,11 @@ export function Sidebar({ view, open, onNavigate }: SidebarProps) {
     <aside
       id="main-nav"
       className={cn(
-        'shrink-0 border-border bg-card lg:block lg:w-64 lg:overflow-y-auto lg:border-r',
+        'shrink-0 border-border bg-card lg:block lg:w-72 lg:overflow-y-auto lg:border-r',
         open ? 'block border-b' : 'hidden'
       )}
     >
-      <nav aria-label="주 메뉴" className="p-300">
+      <nav aria-label="주 메뉴" className="p-400">
         <ul className="space-y-100">
           <li>
             <button
@@ -105,7 +107,7 @@ export function Sidebar({ view, open, onNavigate }: SidebarProps) {
                   aria-expanded={active}
                   aria-controls={menuId}
                   onClick={() => onNavigate(active ? view : group.views[0])}
-                  className={itemClass(active)}
+                  className={itemClass(active, true)}
                 >
                   <GroupIcon aria-hidden="true" className="icon-size-300 shrink-0" />
                   <span className="flex-1">{group.label}</span>

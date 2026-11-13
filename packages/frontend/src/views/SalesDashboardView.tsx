@@ -23,7 +23,7 @@ export function SalesDashboardView() {
   return (
     <div className="space-y-400">
       <header>
-        <h2 className="text-600 font-semibold text-foreground">판매 현황</h2>
+        <h2 className="text-hero-700 font-bold tracking-tight text-foreground">판매 현황</h2>
         <p className="mt-100 text-300 text-muted-foreground">
           막대를 누르면 나머지 차트와 합계가 그 조건으로 바뀝니다. Ctrl(⌘)이나 Shift를 누른 채 누르면 여러 개를 고를 수 있고, 같은 막대를 다시 누르면 해제됩니다.
         </p>

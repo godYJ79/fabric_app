@@ -71,7 +71,7 @@ export function RequestList(props: RequestListProps) {
               <button
                 type="button"
                 onClick={props.onCreate}
-                className="inline-flex items-center gap-200 rounded-lg bg-primary px-400 py-200 text-300 font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="inline-flex items-center gap-200 rounded-full bg-primary px-400 py-200 text-300 font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 <Plus aria-hidden="true" className="icon-size-200" />새 요청 등록
               </button>

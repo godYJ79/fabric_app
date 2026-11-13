@@ -331,7 +331,7 @@ export function RequestDetail({ id, user, onChanged, onDeleted, onBack }: Reques
             <button
               type="submit"
               disabled={posting || comment.trim().length === 0}
-              className="rounded-lg bg-primary px-400 py-200 text-300 font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-full bg-primary px-400 py-200 text-300 font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {posting ? '등록 중…' : '코멘트 등록'}
             </button>

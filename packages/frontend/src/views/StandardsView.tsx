@@ -222,7 +222,7 @@ export function StandardsView({
     <button
       type="button"
       onClick={openCreate}
-      className="inline-flex items-center gap-200 rounded-lg bg-primary px-400 py-200 text-300 font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      className="inline-flex items-center gap-200 rounded-full bg-primary px-400 py-200 text-300 font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
     >
       <Plus aria-hidden="true" className="icon-size-200" />
       {label} 등록
@@ -233,7 +233,7 @@ export function StandardsView({
     <div className="space-y-400">
       <header className="flex flex-wrap items-start justify-between gap-300">
         <div>
-          <h2 className="text-600 font-semibold text-foreground">{label}</h2>
+          <h2 className="text-hero-700 font-bold tracking-tight text-foreground">{label}</h2>
           <p className="mt-100 text-300 text-muted-foreground">{INTRO[kind]}</p>
         </div>
         <div className="flex flex-wrap items-center gap-200">
@@ -317,7 +317,7 @@ export function StandardsView({
             <button
               type="button"
               onClick={() => void runSeed()}
-              className="rounded-lg bg-primary px-300 py-100 text-300 font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="rounded-full bg-primary px-300 py-100 text-300 font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               불러오기
             </button>

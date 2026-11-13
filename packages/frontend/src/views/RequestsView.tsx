@@ -123,7 +123,7 @@ export function RequestsView({
         )}
       >
         <div>
-          <h2 className="text-600 font-semibold text-foreground">데이터 요청</h2>
+          <h2 className="text-hero-700 font-bold tracking-tight text-foreground">데이터 요청</h2>
           <p className="mt-100 text-300 text-muted-foreground">
             데이터가 이상하거나 확인이 필요할 때 요청을 남기고 처리 상황을 확인합니다.
           </p>
@@ -131,7 +131,7 @@ export function RequestsView({
         <button
           type="button"
           onClick={openCreate}
-          className="inline-flex items-center gap-200 rounded-lg bg-primary px-400 py-200 text-300 font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="inline-flex items-center gap-200 rounded-full bg-primary px-400 py-200 text-300 font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           <Plus aria-hidden="true" className="icon-size-200" />새 요청
         </button>
