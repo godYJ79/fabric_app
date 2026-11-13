@@ -6,7 +6,10 @@ import { EmptyState } from '@/components/states';
 import { useCurrentUser, type CurrentUser } from '@/hooks/use-current-user';
 import { useRoute } from '@/hooks/use-route';
 import type { View } from '@/lib/route';
+import { cn } from '@/lib/utils';
+import { LngDashboardView } from '@/views/LngDashboardView';
 import { RequestsView } from '@/views/RequestsView';
+import { SalesDashboardView } from '@/views/SalesDashboardView';
 import { StandardsView } from '@/views/StandardsView';
 
 function Shell({ user }: { readonly user: CurrentUser }) {
@@ -23,18 +26,30 @@ function Shell({ user }: { readonly user: CurrentUser }) {
       <AppHeader user={user} navOpen={navOpen} onToggleNav={() => setNavOpen((open) => !open)} />
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <Sidebar view={route.view} open={navOpen} onNavigate={navigate} />
-        <main className="min-w-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-6xl px-400 py-500">
-            {route.view === 'requests' ? (
-              <RequestsView
-                user={user}
-                requestId={route.requestId}
-                onSelectRequest={(id) => go({ view: 'requests', requestId: id }, 'replace')}
-              />
-            ) : (
-              <StandardsView key={route.view} kind={route.view} user={user} />
-            )}
-          </div>
+        {/* The map dashboard fills the whole area; every other screen scrolls inside a padded column. */}
+        <main
+          className={cn(
+            'min-h-0 min-w-0 flex-1',
+            route.view === 'lng' ? 'relative overflow-hidden' : 'overflow-y-auto'
+          )}
+        >
+          {route.view === 'lng' ? (
+            <LngDashboardView />
+          ) : (
+            <div className="mx-auto w-full max-w-6xl px-400 py-500">
+              {route.view === 'requests' ? (
+                <RequestsView
+                  user={user}
+                  requestId={route.requestId}
+                  onSelectRequest={(id) => go({ view: 'requests', requestId: id }, 'replace')}
+                />
+              ) : route.view === 'sales' ? (
+                <SalesDashboardView />
+              ) : (
+                <StandardsView key={route.view} kind={route.view} user={user} />
+              )}
+            </div>
+          )}
         </main>
       </div>
     </div>

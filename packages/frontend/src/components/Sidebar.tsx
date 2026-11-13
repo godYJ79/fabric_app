@@ -1,15 +1,59 @@
-import { BookMarked, BookOpen, ChevronDown, ChevronRight, Inbox, Sigma, Type } from 'lucide-react';
+import {
+  BookMarked,
+  BookOpen,
+  ChevronDown,
+  ChevronRight,
+  ChartColumn,
+  Globe,
+  Inbox,
+  LayoutDashboard,
+  Sigma,
+  Type,
+} from 'lucide-react';
 import type { ComponentType } from 'react';
 
-import { KIND_LABEL } from '@/lib/dictionary';
-import { isStandardView, STANDARD_VIEWS, type StandardView, type View } from '@/lib/route';
+import { isDashboardView, isStandardView, VIEW_LABEL, type View } from '@/lib/route';
 import { cn } from '@/lib/utils';
 
-const STANDARD_ICON: Record<StandardView, ComponentType<{ className?: string; 'aria-hidden'?: 'true' }>> = {
+type Icon = ComponentType<{ className?: string; 'aria-hidden'?: 'true' }>;
+
+const VIEW_ICON: Record<View, Icon> = {
+  requests: Inbox,
   words: Type,
   terms: BookMarked,
   formulas: Sigma,
+  lng: Globe,
+  sales: ChartColumn,
 };
+
+interface Group {
+  key: string;
+  label: string;
+  /** Accessible name when it would otherwise repeat the name of one of its items. */
+  ariaLabel?: string;
+  icon: Icon;
+  views: readonly View[];
+  isActive: (view: View) => boolean;
+}
+
+const GROUPS: readonly Group[] = [
+  {
+    key: 'standards',
+    label: '표준 용어',
+    // A sub-menu item has the same visible name; keep the two distinguishable.
+    ariaLabel: '표준 용어 메뉴',
+    icon: BookOpen,
+    views: ['words', 'terms', 'formulas'],
+    isActive: isStandardView,
+  },
+  {
+    key: 'dashboards',
+    label: '대시보드',
+    icon: LayoutDashboard,
+    views: ['lng', 'sales'],
+    isActive: isDashboardView,
+  },
+];
 
 const itemClass = (active: boolean) =>
   cn(
@@ -27,7 +71,7 @@ export interface SidebarProps {
 }
 
 export function Sidebar({ view, open, onNavigate }: SidebarProps) {
-  const standardsActive = isStandardView(view);
+  const RequestsIcon = VIEW_ICON.requests;
   return (
     <aside
       id="main-nav"
@@ -45,49 +89,55 @@ export function Sidebar({ view, open, onNavigate }: SidebarProps) {
               onClick={() => onNavigate('requests')}
               className={itemClass(view === 'requests')}
             >
-              <Inbox aria-hidden="true" className="icon-size-300 shrink-0" />
-              데이터 요청
+              <RequestsIcon aria-hidden="true" className="icon-size-300 shrink-0" />
+              {VIEW_LABEL.requests}
             </button>
           </li>
-          <li>
-            <button
-              type="button"
-              // The sub-menu has an item with the same visible name; keep the two distinguishable.
-              aria-label="표준 용어 메뉴"
-              aria-expanded={standardsActive}
-              aria-controls="standards-menu"
-              onClick={() => onNavigate(standardsActive ? view : 'words')}
-              className={itemClass(standardsActive)}
-            >
-              <BookOpen aria-hidden="true" className="icon-size-300 shrink-0" />
-              <span className="flex-1">표준 용어</span>
-              {standardsActive ? (
-                <ChevronDown aria-hidden="true" className="icon-size-200 shrink-0" />
-              ) : (
-                <ChevronRight aria-hidden="true" className="icon-size-200 shrink-0" />
-              )}
-            </button>
-            {standardsActive ? (
-              <ul id="standards-menu" className="ml-400 mt-100 space-y-100 border-l border-border pl-200">
-                {STANDARD_VIEWS.map((child) => {
-                  const Icon = STANDARD_ICON[child];
-                  return (
-                    <li key={child}>
-                      <button
-                        type="button"
-                        aria-current={view === child ? 'page' : undefined}
-                        onClick={() => onNavigate(child)}
-                        className={itemClass(view === child)}
-                      >
-                        <Icon aria-hidden="true" className="icon-size-200 shrink-0" />
-                        {KIND_LABEL[child]}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : null}
-          </li>
+          {GROUPS.map((group) => {
+            const active = group.isActive(view);
+            const GroupIcon = group.icon;
+            const menuId = `${group.key}-menu`;
+            return (
+              <li key={group.key}>
+                <button
+                  type="button"
+                  aria-label={group.ariaLabel}
+                  aria-expanded={active}
+                  aria-controls={menuId}
+                  onClick={() => onNavigate(active ? view : group.views[0])}
+                  className={itemClass(active)}
+                >
+                  <GroupIcon aria-hidden="true" className="icon-size-300 shrink-0" />
+                  <span className="flex-1">{group.label}</span>
+                  {active ? (
+                    <ChevronDown aria-hidden="true" className="icon-size-200 shrink-0" />
+                  ) : (
+                    <ChevronRight aria-hidden="true" className="icon-size-200 shrink-0" />
+                  )}
+                </button>
+                {active ? (
+                  <ul id={menuId} className="ml-400 mt-100 space-y-100 border-l border-border pl-200">
+                    {group.views.map((child) => {
+                      const ChildIcon = VIEW_ICON[child];
+                      return (
+                        <li key={child}>
+                          <button
+                            type="button"
+                            aria-current={view === child ? 'page' : undefined}
+                            onClick={() => onNavigate(child)}
+                            className={itemClass(view === child)}
+                          >
+                            <ChildIcon aria-hidden="true" className="icon-size-200 shrink-0" />
+                            {VIEW_LABEL[child]}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       </nav>
     </aside>

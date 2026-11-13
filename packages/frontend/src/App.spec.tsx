@@ -96,6 +96,36 @@ describe('App', () => {
     expect(window.location.hash).toBe('');
   });
 
+  it('opens the two dashboards from the left menu', async () => {
+    renderApp('someone@example.com');
+    await screen.findByText('아직 등록한 요청이 없습니다');
+    const nav = screen.getByRole('navigation', { name: '주 메뉴' });
+
+    fireEvent.click(within(nav).getByRole('button', { name: '대시보드' }));
+    expect(within(nav).getByRole('button', { name: 'LNG 수출입 현황' })).toBeVisible();
+    expect(within(nav).getByRole('button', { name: '판매 현황' })).toBeVisible();
+    // The first dashboard opens by itself, in a frame, with the app's (light) theme.
+    const frame = await screen.findByTitle('LNG 수출입 현황');
+    expect(frame.tagName).toBe('IFRAME');
+    expect(frame.getAttribute('srcdoc')).toContain('data-theme="light"');
+    expect(frame.getAttribute('srcdoc')).toContain('<div class="app">');
+    expect(window.location.hash).toBe('#dashboards=lng');
+
+    fireEvent.click(within(nav).getByRole('button', { name: '판매 현황' }));
+    expect(await screen.findByRole('heading', { level: 2, name: '판매 현황' })).toBeVisible();
+    expect(screen.getByText('시멘틱 모델이 아직 연결되지 않았습니다')).toBeVisible();
+    expect(window.location.hash).toBe('#dashboards=sales');
+    expect(screen.queryByTitle('LNG 수출입 현황')).toBeNull();
+  });
+
+  it('opens a dashboard straight from its link', async () => {
+    window.location.hash = '#dashboards=sales';
+    renderApp('someone@example.com');
+    expect(await screen.findByRole('heading', { level: 2, name: '판매 현황' })).toBeVisible();
+    const nav = screen.getByRole('navigation', { name: '주 메뉴' });
+    expect(within(nav).getByRole('button', { name: 'LNG 수출입 현황' })).toBeVisible();
+  });
+
   it('opens a dictionary straight from its link', async () => {
     window.location.hash = '#standards=terms';
     renderApp('someone@example.com');
