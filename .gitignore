@@ -45,3 +45,6 @@ rayfin.config.json
 *.njsproj
 *.sln
 *.sw?
+
+# Semantic model metadata read by inspection/run-discovery.cmd (business information)
+inspection/results/

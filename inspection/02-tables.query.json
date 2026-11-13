@@ -1,0 +1,3 @@
+{
+  "query": "EVALUATE\nSELECTCOLUMNS(\n  INFO.VIEW.TABLES(),\n  \"Table\", [Name],\n  \"IsHidden\", [IsHidden],\n  \"DataCategory\", [DataCategory]\n)\nORDER BY [Table] ASC"
+}

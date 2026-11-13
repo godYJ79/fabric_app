@@ -2,6 +2,8 @@ id: request-app
 name: request-app
 version: 1.0.0
 services:
+  connectors:
+    enabled: true
   auth:
     enabled: true
     fabric:
