@@ -1,0 +1,3 @@
+{
+  "query": "EVALUATE\nROW(\n  \"전체 실적\", [실적],\n  \"법인 ICA 실적\", CALCULATE([실적], TREATAS({\"ICA\"}, 'D_Corporation'[법인])),\n  \"계열사 유텍솔루션 실적\", CALCULATE([실적], TREATAS({\"유텍솔루션\"}, 'D_Affiliate'[계열사])),\n  \"전체 매출 합계\", SUM('F_Sales_Actual'[매출]),\n  \"법인 ICA 매출 합계\", CALCULATE(SUM('F_Sales_Actual'[매출]), TREATAS({\"ICA\"}, 'D_Corporation'[법인])),\n  \"법인 ICA 계획\", CALCULATE([계획], TREATAS({\"ICA\"}, 'D_Corporation'[법인]))\n)"
+}
