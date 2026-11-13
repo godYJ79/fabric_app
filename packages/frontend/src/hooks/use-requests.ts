@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { DataRequestRecord, RequestStatus } from '@rayfin-app/shared';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { DataRequestRecord } from '@rayfin-app/shared';
 
 import { describeError } from '@/lib/errors';
-import { getRayfinClient } from '@/lib/rayfin-client';
-
-export type StatusFilter = RequestStatus | 'all';
+import { buildWhere, type RequestFilters } from '@/lib/query';
+import { fetchRequestPage } from '@/lib/request-queries';
 
 export type RequestSummary = Pick<
   DataRequestRecord,
@@ -19,25 +18,6 @@ export type RequestSummary = Pick<
 
 const PAGE_SIZE = 25;
 
-async function fetchPage(filter: StatusFilter, cursor: string | null) {
-  const client = await getRayfinClient();
-  let query = client.data.DataRequest.select([
-    'id',
-    'title',
-    'status',
-    'urgency',
-    'targetTable',
-    'requesterEmail',
-    'createdAt',
-  ])
-    .orderBy({ createdAt: 'desc' })
-    .orderBy({ id: 'asc' })
-    .first(PAGE_SIZE);
-  if (filter !== 'all') query = query.where({ status: { eq: filter } });
-  if (cursor) query = query.after(cursor);
-  return query.executePaginated();
-}
-
 export type ListStatus = 'loading' | 'ready' | 'error';
 
 export interface UseRequestsResult {
@@ -47,6 +27,8 @@ export interface UseRequestsResult {
   hasMore: boolean;
   loadingMore: boolean;
   loadMoreError: string | null;
+  /** When the list was last fetched successfully. */
+  loadedAt: Date | null;
   reload(): void;
   loadMore(): void;
   /** Put a just-created request at the top without refetching. */
@@ -56,17 +38,20 @@ export interface UseRequestsResult {
 }
 
 /**
- * The request list for one status filter, fetched a page at a time.
+ * The request list for a set of filters, fetched a page at a time.
  * Row-level access is enforced by the data service; this only asks for rows.
+ * Pass a new `filters` object only when a filter actually changes.
  */
-export function useRequests(filter: StatusFilter): UseRequestsResult {
+export function useRequests(filters: RequestFilters, userId: string): UseRequestsResult {
+  const where = useMemo(() => buildWhere(filters, userId), [filters, userId]);
   const [items, setItems] = useState<readonly RequestSummary[]>([]);
   const [status, setStatus] = useState<ListStatus>('loading');
   const [error, setError] = useState<string | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
-  // A late response for a previous filter must not overwrite the current one.
+  const [loadedAt, setLoadedAt] = useState<Date | null>(null);
+  // A late response for previous filters must not overwrite the current list.
   const generation = useRef(0);
 
   const load = useCallback(async () => {
@@ -75,20 +60,21 @@ export function useRequests(filter: StatusFilter): UseRequestsResult {
     setError(null);
     setLoadMoreError(null);
     try {
-      const page = await fetchPage(filter, null);
+      const page = await fetchRequestPage(where, null, PAGE_SIZE);
       if (mine !== generation.current) return;
       setItems(page.items as RequestSummary[]);
       setCursor(page.hasNextPage ? (page.endCursor ?? null) : null);
+      setLoadedAt(new Date());
       setStatus('ready');
     } catch (e) {
       if (mine !== generation.current) return;
       setError(describeError(e, 'load'));
       setStatus('error');
     }
-  }, [filter]);
+  }, [where]);
 
   useEffect(() => {
-    // Fetch on mount and whenever the filter changes.
+    // Fetch on mount and whenever the filters change.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
@@ -99,7 +85,7 @@ export function useRequests(filter: StatusFilter): UseRequestsResult {
     setLoadingMore(true);
     setLoadMoreError(null);
     try {
-      const page = await fetchPage(filter, cursor);
+      const page = await fetchRequestPage(where, cursor, PAGE_SIZE);
       if (mine !== generation.current) return;
       setItems((prev) => {
         const seen = new Set(prev.map((i) => i.id));
@@ -115,7 +101,7 @@ export function useRequests(filter: StatusFilter): UseRequestsResult {
     } finally {
       if (mine === generation.current) setLoadingMore(false);
     }
-  }, [cursor, filter, loadingMore]);
+  }, [cursor, where, loadingMore]);
 
   return {
     items,
@@ -124,6 +110,7 @@ export function useRequests(filter: StatusFilter): UseRequestsResult {
     hasMore: cursor !== null,
     loadingMore,
     loadMoreError,
+    loadedAt,
     reload: () => void load(),
     loadMore: () => void loadMore(),
     addLocal: (item) =>

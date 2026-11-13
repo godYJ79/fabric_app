@@ -2,82 +2,42 @@ import { Plus } from 'lucide-react';
 
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { StatusBadge, UrgencyTag } from '@/components/StatusBadge';
-import type { RequestSummary, StatusFilter, ListStatus } from '@/hooks/use-requests';
+import type { ListStatus, RequestSummary } from '@/hooks/use-requests';
 import {
   displayText,
   formatDateTime,
   statusStyle,
-  STATUS_LABEL,
   ticketNumber,
 } from '@/lib/labels';
+import { matchesStatus, type StatusFilter } from '@/lib/query';
 import { cn } from '@/lib/utils';
-
-const FILTERS: readonly { value: StatusFilter; label: string }[] = [
-  { value: 'all', label: '전체' },
-  { value: 'received', label: STATUS_LABEL.received },
-  { value: 'analyzing', label: STATUS_LABEL.analyzing },
-  { value: 'done', label: STATUS_LABEL.done },
-];
 
 export interface RequestListProps {
   readonly items: readonly RequestSummary[];
   readonly status: ListStatus;
   readonly error: string | null;
-  readonly filter: StatusFilter;
+  /** Rows edited out of the active status filter are hidden without a refetch. */
+  readonly statusFilter: StatusFilter;
+  readonly filtersActive: boolean;
   readonly isStaff: boolean;
   readonly selectedId: string | null;
   readonly hasMore: boolean;
   readonly loadingMore: boolean;
   readonly loadMoreError: string | null;
-  readonly onFilter: (filter: StatusFilter) => void;
   readonly onSelect: (id: string) => void;
   readonly onCreate: () => void;
+  readonly onReset: () => void;
   readonly onRetry: () => void;
   readonly onLoadMore: () => void;
 }
 
 export function RequestList(props: RequestListProps) {
-  const {
-    items,
-    status,
-    error,
-    filter,
-    isStaff,
-    selectedId,
-    hasMore,
-    loadingMore,
-    loadMoreError,
-  } = props;
-
-  // A status change made on the detail panel can leave a row that no longer
-  // matches the active filter; drop it from view.
-  const visible = items.filter((i) => filter === 'all' || i.status === filter);
+  const { items, status, error, isStaff, selectedId, hasMore, loadingMore, loadMoreError } =
+    props;
+  const visible = items.filter((i) => matchesStatus(props.statusFilter, i.status));
 
   return (
     <div className="space-y-400">
-      <div
-        role="group"
-        aria-label="상태 필터"
-        className="flex flex-wrap gap-200"
-      >
-        {FILTERS.map((f) => (
-          <button
-            key={f.value}
-            type="button"
-            aria-pressed={filter === f.value}
-            onClick={() => props.onFilter(f.value)}
-            className={cn(
-              'rounded-full border px-300 py-100 text-[length:var(--text-300)] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              filter === f.value
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-border bg-card text-foreground hover:bg-accent'
-            )}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
-
       {status === 'loading' ? <LoadingState rows={4} /> : null}
 
       {status === 'error' && error ? (
@@ -85,21 +45,29 @@ export function RequestList(props: RequestListProps) {
       ) : null}
 
       {status === 'ready' && visible.length === 0 ? (
-        <EmptyState
-          title={
-            filter === 'all'
-              ? isStaff
-                ? '접수된 요청이 없습니다'
-                : '아직 등록한 요청이 없습니다'
-              : '이 상태의 요청이 없습니다'
-          }
-          hint={
-            isStaff
-              ? '요청자가 등록하면 여기에 표시됩니다.'
-              : '데이터가 이상하거나 확인이 필요하면 요청을 남겨 주세요.'
-          }
-          action={
-            filter === 'all' ? (
+        props.filtersActive ? (
+          <EmptyState
+            title="조건에 맞는 요청이 없습니다"
+            hint="검색어나 필터를 바꾸거나 초기화해 보세요."
+            action={
+              <button
+                type="button"
+                onClick={props.onReset}
+                className="rounded-lg border border-border bg-card px-400 py-200 text-300 font-semibold text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                필터 초기화
+              </button>
+            }
+          />
+        ) : (
+          <EmptyState
+            title={isStaff ? '접수된 요청이 없습니다' : '아직 등록한 요청이 없습니다'}
+            hint={
+              isStaff
+                ? '요청자가 등록하면 여기에 표시됩니다.'
+                : '데이터가 이상하거나 확인이 필요하면 요청을 남겨 주세요.'
+            }
+            action={
               <button
                 type="button"
                 onClick={props.onCreate}
@@ -107,9 +75,9 @@ export function RequestList(props: RequestListProps) {
               >
                 <Plus aria-hidden="true" className="icon-size-200" />새 요청 등록
               </button>
-            ) : undefined
-          }
-        />
+            }
+          />
+        )
       ) : null}
 
       {status === 'ready' && visible.length > 0 ? (
@@ -125,7 +93,9 @@ export function RequestList(props: RequestListProps) {
                   className={cn(
                     'w-full rounded-xl border border-l-4 bg-card p-300 text-left transition hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                     statusStyle(item.status).rail,
-                    selected ? 'border-y-primary border-r-primary bg-accent' : 'border-y-border border-r-border'
+                    selected
+                      ? 'border-y-primary border-r-primary bg-accent'
+                      : 'border-y-border border-r-border'
                   )}
                 >
                   <div className="flex items-center justify-between gap-300">

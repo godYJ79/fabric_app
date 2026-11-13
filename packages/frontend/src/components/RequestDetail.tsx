@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { ArrowLeft, Trash2 } from 'lucide-react';
+import { ArrowLeft, History, Link2, Trash2 } from 'lucide-react';
 import {
   REQUEST_STATUSES,
   type RequestCommentRecord,
@@ -15,6 +15,8 @@ import { describeError } from '@/lib/errors';
 import {
   displayText,
   formatDateTime,
+  isStatusChangeNote,
+  statusChangeNote,
   statusStyle,
   STATUS_LABEL,
   ticketNumber,
@@ -43,6 +45,7 @@ export function RequestDetail({ id, user, onChanged, onDeleted, onBack }: Reques
   const [posting, setPosting] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [linkCopied, setLinkCopied] = useState<'idle' | 'copied' | 'failed'>('idle');
 
   const backButton = (
     <button
@@ -87,6 +90,7 @@ export function RequestDetail({ id, user, onChanged, onDeleted, onBack }: Reques
 
   async function changeStatus(next: RequestStatus) {
     if (!detail || next === detail.status || pendingStatus) return;
+    const previous = detail.status;
     setPendingStatus(next);
     setActionError(null);
     try {
@@ -94,11 +98,37 @@ export function RequestDetail({ id, user, onChanged, onDeleted, onBack }: Reques
       await client.data.DataRequest.update({ id }, { status: next });
       patchLocal({ status: next });
       onChanged({ status: next });
+      // Leave a trail of who changed the status and when, as a comment.
+      try {
+        const note = {
+          body: statusChangeNote(previous, next),
+          user_id: user.id,
+          authorEmail: user.email,
+          createdAt: new Date(),
+          request_owner_id: detail.user_id,
+          request: { id },
+        };
+        const created = await client.data.RequestComment.create(note);
+        addCommentLocal({ ...note, ...created } as RequestCommentRecord);
+      } catch (historyError) {
+        describeError(historyError, 'save');
+        setActionError('상태는 변경했지만 변경 이력을 남기지 못했습니다.');
+      }
     } catch (e) {
       setActionError(describeError(e, 'save'));
     } finally {
       setPendingStatus(null);
     }
+  }
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setLinkCopied('copied');
+    } catch {
+      setLinkCopied('failed');
+    }
+    setTimeout(() => setLinkCopied('idle'), 2000);
   }
 
   async function postComment(event: React.FormEvent) {
@@ -155,8 +185,23 @@ export function RequestDetail({ id, user, onChanged, onDeleted, onBack }: Reques
       >
         <header>
           <div className="flex flex-wrap items-center justify-between gap-300">
-            <span className="font-monospace text-200 text-muted-foreground">
-              {ticketNumber(detail.id)}
+            <span className="inline-flex items-center gap-200">
+              <span className="font-monospace text-200 text-muted-foreground">
+                {ticketNumber(detail.id)}
+              </span>
+              <button
+                type="button"
+                onClick={() => void copyLink()}
+                aria-label="이 요청의 링크 복사"
+                className="inline-flex items-center gap-100 rounded-md px-200 py-100 text-200 text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Link2 aria-hidden="true" className="icon-size-100" />
+                {linkCopied === 'copied'
+                  ? '복사됨'
+                  : linkCopied === 'failed'
+                    ? '복사하지 못함'
+                    : '링크 복사'}
+              </button>
             </span>
             <div className="flex items-center gap-300">
               <StatusBadge status={detail.status} />
@@ -233,7 +278,19 @@ export function RequestDetail({ id, user, onChanged, onDeleted, onBack }: Reques
           <p className="mt-200 text-300 text-muted-foreground">아직 코멘트가 없습니다.</p>
         ) : (
           <ul className="mt-300 space-y-300">
-            {detail.comments.map((c) => (
+            {detail.comments.map((c) =>
+              isStatusChangeNote(c.body) ? (
+                <li
+                  key={c.id}
+                  className="flex flex-wrap items-center gap-x-200 gap-y-100 px-300 text-200 text-muted-foreground"
+                >
+                  <History aria-hidden="true" className="icon-size-100 shrink-0" />
+                  <span className="font-medium text-foreground">{displayText(c.body)}</span>
+                  <span>
+                    {displayText(c.authorEmail)} · {formatDateTime(c.createdAt)}
+                  </span>
+                </li>
+              ) : (
               <li key={c.id} className="rounded-xl border border-border bg-card p-300">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-300 text-200 text-muted-foreground">
                   <span className="font-medium text-foreground">
@@ -245,7 +302,8 @@ export function RequestDetail({ id, user, onChanged, onDeleted, onBack }: Reques
                   {displayText(c.body)}
                 </p>
               </li>
-            ))}
+              )
+            )}
           </ul>
         )}
 
@@ -257,6 +315,9 @@ export function RequestDetail({ id, user, onChanged, onDeleted, onBack }: Reques
             id={`${uid}-comment`}
             value={comment}
             onChange={(e) => setComment(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') void postComment(e);
+            }}
             maxLength={COMMENT_MAX}
             rows={3}
             disabled={posting}
@@ -265,7 +326,7 @@ export function RequestDetail({ id, user, onChanged, onDeleted, onBack }: Reques
           />
           <div className="flex items-center justify-between">
             <span className="text-200 text-muted-foreground">
-              {comment.length}/{COMMENT_MAX}
+              {comment.length}/{COMMENT_MAX} · Ctrl+Enter로 등록
             </span>
             <button
               type="submit"

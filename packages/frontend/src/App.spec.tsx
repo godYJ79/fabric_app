@@ -1,18 +1,25 @@
 import type { OpaqueSession } from '@microsoft/rayfin-auth';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import App from '@/App';
 import { AuthContext, type AuthContextValue } from '@/hooks/auth.context';
 
-const { executePaginated } = vi.hoisted(() => ({ executePaginated: vi.fn() }));
+const { executePaginated, whereSpy } = vi.hoisted(() => ({
+  executePaginated: vi.fn(),
+  whereSpy: vi.fn(),
+}));
 
 // A chainable stand-in for `client.data.DataRequest.select(...)...executePaginated()`.
 vi.mock('@/lib/rayfin-client', () => {
   const chain: Record<string, unknown> = {};
-  for (const method of ['orderBy', 'first', 'where', 'after']) {
+  for (const method of ['orderBy', 'first', 'after']) {
     chain[method] = () => chain;
   }
+  chain.where = (filter: unknown) => {
+    whereSpy(filter);
+    return chain;
+  };
   chain.executePaginated = () => executePaginated();
   return {
     getRayfinClient: async () => ({
@@ -61,6 +68,7 @@ describe('App', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     executePaginated.mockReset();
+    whereSpy.mockReset();
   });
 
   it('explains when the session has no user instead of loading data', () => {
@@ -102,7 +110,56 @@ describe('App', () => {
     expect(screen.getByText('#ABCDEF')).toBeVisible();
     // The status filter button and the row badge both say "분석 중".
     expect(screen.getAllByText('분석 중').length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText('긴급')).toBeVisible();
+    // The urgency tag on the row; the filter list has an option with the same word.
+    expect(screen.getAllByText('긴급').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('긴급 미처리')).toBeVisible();
+  });
+
+  it('shows the counts of the requests it can read in the summary cards', async () => {
+    executePaginated.mockResolvedValue({
+      items: [
+        { id: '1', title: 'a', status: 'received', urgency: 'urgent', targetTable: 't', requesterEmail: 'x@y.z', createdAt: new Date() },
+        { id: '2', title: 'b', status: 'done', urgency: 'low', targetTable: 't', requesterEmail: 'x@y.z', createdAt: new Date() },
+      ],
+      hasNextPage: false,
+      endCursor: null,
+    });
+    renderApp('someone@example.com');
+    const total = await screen.findByRole('button', { name: /^전체\s*2$/ });
+    expect(total).toBeVisible();
+    expect(screen.getByRole('button', { name: /^긴급 미처리\s*1$/ })).toBeVisible();
+  });
+
+  it('turns the search box into a server-side filter after the user pauses', async () => {
+    renderApp('someone@example.com');
+    await screen.findByText('아직 등록한 요청이 없습니다');
+    fireEvent.change(screen.getByRole('searchbox', { name: '요청 검색' }), {
+      target: { value: '매출' },
+    });
+    await waitFor(
+      () => {
+        expect(whereSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            or: [
+              { title: { contains: '매출' } },
+              { targetTable: { contains: '매출' } },
+              { requesterEmail: { contains: '매출' } },
+            ],
+          })
+        );
+      },
+      { timeout: 2000 }
+    );
+    expect(await screen.findByText('조건에 맞는 요청이 없습니다')).toBeVisible();
+  });
+
+  it('filters by status when a summary card is chosen', async () => {
+    renderApp('someone@example.com');
+    await screen.findByText('아직 등록한 요청이 없습니다');
+    fireEvent.click(screen.getByRole('button', { name: /^접수/ }));
+    await waitFor(() => {
+      expect(whereSpy).toHaveBeenCalledWith({ status: { eq: 'received' } });
+    });
   });
 
   it('shows an actionable error, not provider details, when loading fails', async () => {

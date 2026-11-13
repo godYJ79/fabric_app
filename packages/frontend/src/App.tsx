@@ -1,14 +1,32 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Moon, Plus, Sun } from 'lucide-react';
 
+import { FilterBar } from '@/components/FilterBar';
 import { RequestDetail } from '@/components/RequestDetail';
 import { RequestForm } from '@/components/RequestForm';
 import { RequestList } from '@/components/RequestList';
 import { EmptyState } from '@/components/states';
+import { SummaryStrip } from '@/components/SummaryStrip';
 import { useTheme } from '@/hooks/theme.context';
 import { useCurrentUser, type CurrentUser } from '@/hooks/use-current-user';
-import { useRequests, type StatusFilter } from '@/hooks/use-requests';
+import { useDebounced } from '@/hooks/use-debounced';
+import { useHashSelection } from '@/hooks/use-hash-selection';
+import { useRequests } from '@/hooks/use-requests';
+import { useSummary } from '@/hooks/use-summary';
+import { downloadCsv } from '@/lib/csv';
+import { describeError } from '@/lib/errors';
+import { buildRequestsCsv, exportFilename } from '@/lib/export-requests';
+import {
+  buildWhere,
+  DEFAULT_FILTERS,
+  hasActiveFilters,
+  type RequestFilters,
+} from '@/lib/query';
+import { fetchExportRows } from '@/lib/request-queries';
 import { cn } from '@/lib/utils';
+
+/** The most rows one export will contain. */
+const EXPORT_CAP = 5000;
 
 function Header({
   user,
@@ -66,13 +84,37 @@ function Header({
 }
 
 function Tracker({ user }: { readonly user: CurrentUser }) {
-  const [filter, setFilter] = useState<StatusFilter>('all');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [filters, setFilters] = useState<RequestFilters>(DEFAULT_FILTERS);
+  const [searchText, setSearchText] = useState('');
+  const debouncedSearch = useDebounced(searchText, 300);
+  // Clearing the box applies at once; typing waits until the user pauses.
+  const search = searchText === '' ? '' : debouncedSearch;
+  const effective = useMemo(() => ({ ...filters, search }), [filters, search]);
+
+  const [selectedId, setSelectedId] = useHashSelection();
   const [composing, setComposing] = useState(false);
-  const requests = useRequests(filter);
+  const requests = useRequests(effective, user.id);
+
+  // The summary is recounted after anything that changes the numbers.
+  const [summaryVersion, setSummaryVersion] = useState(0);
+  const summary = useSummary(summaryVersion);
+  const recount = () => setSummaryVersion((v) => v + 1);
+
+  const [exporting, setExporting] = useState(false);
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
 
   // On narrow screens only one panel is shown at a time.
   const detailOpen = selectedId !== null || composing;
+  const filtersActive = hasActiveFilters({ ...filters, search: searchText });
+
+  function change(patch: Partial<RequestFilters>) {
+    setFilters((prev) => ({ ...prev, ...patch }));
+  }
+
+  function reset() {
+    setFilters(DEFAULT_FILTERS);
+    setSearchText('');
+  }
 
   function openCreate() {
     setSelectedId(null);
@@ -89,62 +131,130 @@ function Tracker({ user }: { readonly user: CurrentUser }) {
     setSelectedId(null);
   }
 
+  function refresh() {
+    requests.reload();
+    recount();
+  }
+
+  async function exportCsv() {
+    setExporting(true);
+    setExportMessage(null);
+    try {
+      const { items, truncated } = await fetchExportRows(
+        buildWhere(effective, user.id),
+        EXPORT_CAP
+      );
+      if (items.length === 0) {
+        setExportMessage('내보낼 요청이 없습니다. 필터를 확인해 주세요.');
+        return;
+      }
+      downloadCsv(exportFilename(), buildRequestsCsv(items));
+      setExportMessage(
+        truncated
+          ? `${items.length.toLocaleString('ko-KR')}건을 내보냈습니다. 요청이 더 있지만 최대 건수까지만 담았습니다.`
+          : `${items.length.toLocaleString('ko-KR')}건을 내보냈습니다.`
+      );
+    } catch (e) {
+      setExportMessage(describeError(e, 'load'));
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="min-h-full bg-background">
       <Header user={user} onCreate={openCreate} />
-      <main className="mx-auto grid w-full max-w-6xl gap-600 px-400 py-500 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-        <section aria-label="요청 목록" className={cn(detailOpen && 'hidden lg:block')}>
-          <RequestList
-            items={requests.items}
-            status={requests.status}
-            error={requests.error}
-            filter={filter}
-            isStaff={user.isStaff}
-            selectedId={selectedId}
-            hasMore={requests.hasMore}
-            loadingMore={requests.loadingMore}
-            loadMoreError={requests.loadMoreError}
-            onFilter={setFilter}
-            onSelect={select}
-            onCreate={openCreate}
-            onRetry={requests.reload}
-            onLoadMore={requests.loadMore}
+      <main className="mx-auto w-full max-w-6xl space-y-500 px-400 py-500">
+        <div className={cn(detailOpen && 'hidden lg:block')}>
+          <SummaryStrip
+            counts={summary.counts}
+            truncated={summary.truncated}
+            failed={summary.failed}
+            filters={filters}
+            onSelect={change}
           />
-        </section>
+        </div>
 
-        <section
-          aria-label="요청 상세"
-          className={cn(!detailOpen && 'hidden lg:block')}
-        >
-          {composing ? (
-            <RequestForm
-              user={user}
-              onCancel={close}
-              onCreated={(created) => {
-                requests.addLocal(created);
-                setComposing(false);
-                setSelectedId(created.id);
-              }}
+        <div className="grid gap-600 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
+          <section
+            aria-label="요청 목록"
+            className={cn('space-y-400', detailOpen && 'hidden lg:block')}
+          >
+            <FilterBar
+              filters={filters}
+              searchText={searchText}
+              isStaff={user.isStaff}
+              loadedAt={requests.loadedAt}
+              refreshing={requests.status === 'loading'}
+              exporting={exporting}
+              exportMessage={exportMessage}
+              canReset={filtersActive}
+              onSearchText={setSearchText}
+              onChange={change}
+              onRefresh={refresh}
+              onExport={() => void exportCsv()}
+              onReset={reset}
             />
-          ) : selectedId ? (
-            <RequestDetail
-              key={selectedId}
-              id={selectedId}
-              user={user}
-              onBack={close}
-              onChanged={(patch) => requests.patchLocal(selectedId, patch)}
-              onDeleted={(id) => {
-                requests.removeLocal(id);
-                close();
-              }}
+            <RequestList
+              items={requests.items}
+              status={requests.status}
+              error={requests.error}
+              statusFilter={filters.status}
+              filtersActive={filtersActive}
+              isStaff={user.isStaff}
+              selectedId={selectedId}
+              hasMore={requests.hasMore}
+              loadingMore={requests.loadingMore}
+              loadMoreError={requests.loadMoreError}
+              onSelect={select}
+              onCreate={openCreate}
+              onReset={reset}
+              onRetry={requests.reload}
+              onLoadMore={requests.loadMore}
             />
-          ) : (
-            <EmptyState
-              title="요청을 선택하세요"
-              hint="왼쪽 목록에서 요청을 고르거나 새 요청을 등록해 주세요."
-            />
-          )}
-        </section>
+          </section>
+
+          <section
+            aria-label="요청 상세"
+            className={cn(!detailOpen && 'hidden lg:block')}
+          >
+            {composing ? (
+              <RequestForm
+                user={user}
+                onCancel={close}
+                onCreated={(created) => {
+                  // Show the new row: drop filters it might not match.
+                  reset();
+                  requests.addLocal(created);
+                  recount();
+                  setComposing(false);
+                  setSelectedId(created.id);
+                }}
+              />
+            ) : selectedId ? (
+              <RequestDetail
+                key={selectedId}
+                id={selectedId}
+                user={user}
+                onBack={close}
+                onChanged={(patch) => {
+                  requests.patchLocal(selectedId, patch);
+                  recount();
+                }}
+                onDeleted={(id) => {
+                  requests.removeLocal(id);
+                  recount();
+                  close();
+                }}
+              />
+            ) : (
+              <EmptyState
+                title="요청을 선택하세요"
+                hint="왼쪽 목록에서 요청을 고르거나 새 요청을 등록해 주세요."
+              />
+            )}
+          </section>
+        </div>
       </main>
     </div>
   );

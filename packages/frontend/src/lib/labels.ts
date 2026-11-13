@@ -88,3 +88,14 @@ export function ticketNumber(id: unknown): string {
   const compact = id.replace(/[^0-9a-zA-Z]/g, '');
   return compact ? `#${compact.slice(0, 6).toUpperCase()}` : '#------';
 }
+
+const STATUS_CHANGE_PREFIX = '[상태 변경]';
+
+/** The comment recorded automatically when staff change a request's status. */
+export function statusChangeNote(from: unknown, to: unknown): string {
+  return `${STATUS_CHANGE_PREFIX} ${statusLabel(from)} → ${statusLabel(to)}`;
+}
+
+export function isStatusChangeNote(body: unknown): boolean {
+  return typeof body === 'string' && body.startsWith(STATUS_CHANGE_PREFIX);
+}
