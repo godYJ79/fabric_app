@@ -1,0 +1,3 @@
+{
+  "query": "EVALUATE\nSUMMARIZECOLUMNS(\n  'D_Location'[국해외],\n  \"실적\", [실적], \"계획\", [계획], \"달성률\", [달성률]\n)"
+}

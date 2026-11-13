@@ -1,0 +1,3 @@
+{
+  "query": "EVALUATE\nSUMMARIZECOLUMNS(\n  'D_Affiliate'[계열사],\n  \"실적\", [실적], \"계획\", [계획], \"달성률\", [달성률]\n)"
+}
