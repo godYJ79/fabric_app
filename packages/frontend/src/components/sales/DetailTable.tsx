@@ -42,7 +42,7 @@ export function DetailTable({ selection }: { readonly selection: Selection }) {
   const dim = DIMENSIONS.find((d) => d.key === dimKey) ?? DIMENSIONS[0];
   const result = useModelRows(buildMembersQuery(dim, selection));
 
-  const rows = result.state === 'error' || !result.rows ? [] : readMembers(result.rows);
+  const rows = result.state === 'error' || !result.rows ? [] : readMembers(result.rows, dim.order);
   const sorted = [...rows].sort((a, b) => {
     const av = sortValue(a, sort.key);
     const bv = sortValue(b, sort.key);

@@ -1,3 +1,0 @@
-{
-  "query": "EVALUATE\nSUMMARIZECOLUMNS(\n  'D_Calendar'[분기명],\n  \"실적\", [실적], \"계획\", [계획], \"달성률\", [달성률]\n)"
-}

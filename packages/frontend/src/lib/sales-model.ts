@@ -14,6 +14,8 @@ export interface DimensionDef {
   readonly label: string;
   readonly table: string;
   readonly column: string;
+  /** 'name' lists the members by name (e.g. years in order) instead of by 실적. */
+  readonly order?: 'name';
 }
 
 export const DIMENSIONS: readonly DimensionDef[] = [
@@ -21,8 +23,7 @@ export const DIMENSIONS: readonly DimensionDef[] = [
   { key: 'corporation', label: '법인', table: 'D_Corporation', column: '법인' },
   { key: 'division', label: '부문', table: 'D_Division', column: '부문' },
   { key: 'location', label: '국내/해외', table: 'D_Location', column: '국해외' },
-  { key: 'year', label: '연도', table: 'D_Calendar', column: '년도명' },
-  { key: 'quarter', label: '분기', table: 'D_Calendar', column: '분기명' },
+  { key: 'year', label: '연도', table: 'D_Calendar', column: '년도명', order: 'name' },
 ];
 
 /** The picked members per dimension key. A missing or empty list means "all". */
@@ -100,16 +101,21 @@ export function readTotals(rows: readonly (readonly unknown[])[]): Figures | nul
   return { actual: toNumber(row[0]), plan: toNumber(row[1]), rate: toNumber(row[2]) };
 }
 
-/** Members query result (columns: member, 실적, 계획, 달성률) → rows, biggest 실적 first. */
-export function readMembers(rows: readonly (readonly unknown[])[]): MemberRow[] {
-  return rows
+/** Members query result (columns: member, 실적, 계획, 달성률) → rows, biggest 실적 first (or by name). */
+export function readMembers(rows: readonly (readonly unknown[])[], order?: 'name'): MemberRow[] {
+  const list = rows
     .map((row) => ({
       member: row[0] === null || row[0] === undefined || row[0] === '' ? '(공백)' : String(row[0]),
       actual: toNumber(row[1]),
       plan: toNumber(row[2]),
       rate: toNumber(row[3]),
     }))
-    .sort((a, b) => (b.actual ?? 0) - (a.actual ?? 0) || a.member.localeCompare(b.member, 'ko'));
+    ;
+  return list.sort((a, b) =>
+    order === 'name'
+      ? a.member.localeCompare(b.member, 'ko', { numeric: true })
+      : (b.actual ?? 0) - (a.actual ?? 0) || a.member.localeCompare(b.member, 'ko')
+  );
 }
 
 /** 실적 − 계획 (null when either is missing). */

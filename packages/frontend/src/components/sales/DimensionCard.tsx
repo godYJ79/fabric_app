@@ -38,7 +38,7 @@ export function DimensionCard({
   const result = useModelRows(buildMembersQuery(dim, selection));
   const picked = selection[dim.key] ?? [];
 
-  const rows = result.state === 'error' || !result.rows ? [] : readMembers(result.rows);
+  const rows = result.state === 'error' || !result.rows ? [] : readMembers(result.rows, dim.order);
   const max = Math.max(1, ...rows.map((r) => Math.max(r.actual ?? 0, r.plan ?? 0)));
   const refreshing = result.state === 'ready' && result.refreshing;
 

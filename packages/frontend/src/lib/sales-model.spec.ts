@@ -63,6 +63,11 @@ describe('results', () => {
     expect(rows[2]).toEqual({ member: '(공백)', actual: 5, plan: null, rate: null });
   });
 
+  it('lists a by-name dimension in name order', () => {
+    const rows = readMembers([['2023년', 9, 1, 1], ['2021년', 1, 1, 1], ['2022년', 5, 1, 1]], 'name');
+    expect(rows.map((r) => r.member)).toEqual(['2021년', '2022년', '2023년']);
+  });
+
   it('computes the gap only when both figures exist', () => {
     expect(gap({ actual: 10, plan: 4, rate: null })).toBe(6);
     expect(gap({ actual: 10, plan: null, rate: null })).toBeNull();
