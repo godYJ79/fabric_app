@@ -1,5 +1,8 @@
 import { DataRequest } from './DataRequest.js';
 import { RequestComment } from './RequestComment.js';
+import { StandardFormula } from './StandardFormula.js';
+import { StandardTerm } from './StandardTerm.js';
+import { StandardWord } from './StandardWord.js';
 import type { UniversalAppSchema } from '@rayfin-app/shared';
 
 /**
@@ -15,6 +18,6 @@ import type { UniversalAppSchema } from '@rayfin-app/shared';
  * array. Every entity needs explicit access control; see the `data-modeling` skill.
  */
 export type { UniversalAppSchema };
-export { DataRequest, RequestComment };
+export { DataRequest, RequestComment, StandardFormula, StandardTerm, StandardWord };
 
-export const schema = [DataRequest, RequestComment];
+export const schema = [DataRequest, RequestComment, StandardWord, StandardTerm, StandardFormula];

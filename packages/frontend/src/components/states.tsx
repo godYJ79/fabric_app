@@ -71,11 +71,14 @@ export function ErrorState({
 /** Confirmation for an irreversible action. It names the thing being deleted. */
 export function ConfirmDelete({
   label,
+  noun = '요청',
   onConfirm,
   onCancel,
   pending,
 }: {
   readonly label: string;
+  /** What is being deleted, for the sentence: "<label> <noun>을 삭제할까요?" */
+  readonly noun?: string;
   readonly onConfirm: () => void;
   readonly onCancel: () => void;
   readonly pending?: boolean;
@@ -87,8 +90,8 @@ export function ConfirmDelete({
       className="flex flex-wrap items-center gap-300 rounded-xl border border-destructive/40 bg-destructive/10 px-400 py-300 text-300"
     >
       <span className="min-w-0 flex-1 text-foreground">
-        <strong className="font-semibold">{label}</strong> 요청을 삭제할까요? 되돌릴 수
-        없습니다.
+        <strong className="font-semibold">{label}</strong> {noun}을(를) 삭제할까요? 되돌릴
+        수 없습니다.
       </span>
       <button
         type="button"

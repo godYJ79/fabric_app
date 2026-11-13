@@ -1,5 +1,5 @@
 import type { OpaqueSession } from '@microsoft/rayfin-auth';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import App from '@/App';
@@ -23,7 +23,12 @@ vi.mock('@/lib/rayfin-client', () => {
   chain.executePaginated = () => executePaginated();
   return {
     getRayfinClient: async () => ({
-      data: { DataRequest: { select: () => chain } },
+      data: {
+        DataRequest: { select: () => chain },
+        StandardWord: { select: () => chain },
+        StandardTerm: { select: () => chain },
+        StandardFormula: { select: () => chain },
+      },
     }),
   };
 });
@@ -66,9 +71,37 @@ describe('App', () => {
   });
 
   afterEach(() => {
+    window.history.replaceState(null, '', '/');
     vi.restoreAllMocks();
     executePaginated.mockReset();
     whereSpy.mockReset();
+  });
+
+  it('opens the dictionaries from the left menu and returns to the requests', async () => {
+    renderApp('someone@example.com');
+    await screen.findByText('아직 등록한 요청이 없습니다');
+    expect(screen.getByRole('heading', { level: 2, name: '데이터 요청' })).toBeVisible();
+
+    const nav = screen.getByRole('navigation', { name: '주 메뉴' });
+    fireEvent.click(within(nav).getByRole('button', { name: '표준 용어 메뉴' }));
+    expect(await screen.findByRole('heading', { level: 2, name: '표준 단어' })).toBeVisible();
+    expect(within(nav).getByRole('button', { name: '표준 계산식' })).toBeVisible();
+
+    fireEvent.click(within(nav).getByRole('button', { name: '표준 계산식' }));
+    expect(await screen.findByRole('heading', { level: 2, name: '표준 계산식' })).toBeVisible();
+    expect(window.location.hash).toBe('#standards=formulas');
+
+    fireEvent.click(within(nav).getByRole('button', { name: '데이터 요청' }));
+    expect(await screen.findByRole('heading', { level: 2, name: '데이터 요청' })).toBeVisible();
+    expect(window.location.hash).toBe('');
+  });
+
+  it('opens a dictionary straight from its link', async () => {
+    window.location.hash = '#standards=terms';
+    renderApp('someone@example.com');
+    expect(await screen.findByRole('heading', { level: 2, name: '표준 용어' })).toBeVisible();
+    const nav = screen.getByRole('navigation', { name: '주 메뉴' });
+    expect(within(nav).getByRole('button', { name: '표준 단어' })).toBeVisible();
   });
 
   it('explains when the session has no user instead of loading data', () => {
