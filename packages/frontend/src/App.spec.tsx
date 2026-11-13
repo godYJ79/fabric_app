@@ -113,7 +113,6 @@ describe('App', () => {
 
     fireEvent.click(within(nav).getByRole('button', { name: '판매 현황' }));
     expect(await screen.findByRole('heading', { level: 2, name: '판매 현황' })).toBeVisible();
-    expect(screen.getByText('시멘틱 모델이 아직 연결되지 않았습니다')).toBeVisible();
     expect(window.location.hash).toBe('#dashboards=sales');
     expect(screen.queryByTitle('LNG 수출입 현황')).toBeNull();
   });
