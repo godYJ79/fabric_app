@@ -7,7 +7,7 @@
  */
 
 /** Connector alias in rayfin/rayfin.yml. */
-export const SALES_CONNECTION = 'salesModel';
+export const SALES_CONNECTION = 'salesmodel';
 
 export interface DimensionDef {
   readonly key: string;

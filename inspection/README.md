@@ -16,7 +16,7 @@
 2. 커넥터 추가 (출력된 `addCommand`를 그대로 실행해도 됩니다)
 
    ```bash
-   npx rayfin connector add --type fabric-semanticmodel --workspace-id <워크스페이스 ID> --item-id <itemId> --name salesModel
+   npx rayfin connector add --type fabric-semanticmodel --workspace-id <워크스페이스 ID> --item-id <itemId> --name salesmodel
    ```
 
    명령이 마지막에 출력하는 `npm install -w @rayfin-app/frontend …` 줄을 **그대로** 실행합니다.
@@ -24,7 +24,7 @@
 3. 연결 확인 (**처음 한 번은 `--json` 없이** 실행합니다)
 
    ```bash
-   npx rayfin connector invoke salesModel executeQuery --file inspection/01-scope.query.json
+   npx rayfin connector invoke salesmodel executeQuery --file inspection/01-scope.query.json
    ```
 
    처음에는 Power BI 사용 동의 창이 나올 수 있습니다. 동의해야 이후 명령이 동작합니다.
@@ -33,7 +33,7 @@
 4. 스키마 조회 (결과가 `inspection\results\`에 저장됩니다)
 
    ```bash
-   inspection\run-discovery.cmd salesModel
+   inspection\run-discovery.cmd salesmodel
    ```
 
 ## 주의
